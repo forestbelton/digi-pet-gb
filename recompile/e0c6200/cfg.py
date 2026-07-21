@@ -29,7 +29,9 @@ class Block:
     )
 
 
-def read_block(rom: memory.ROM, start: memory.Address) -> Block:
+def read_block(
+    rom: memory.ROM, start: memory.Address, leaders: set[memory.Address] = set()
+) -> Block:
     block = Block(start=start)
     addr = start
     pending: Optional[int] = None
@@ -69,13 +71,19 @@ def read_block(rom: memory.ROM, start: memory.Address) -> Block:
                 break
             case _:
                 pending = None
+
         addr = addr.next()
+        if addr in leaders:
+            block.successors = [addr]
+            break
 
     return block
 
 
-def read_blocks(
-    rom: memory.ROM, starts: list[memory.Address] = ENTRYPOINTS
+def read_blocks_with_leaders(
+    rom: memory.ROM,
+    starts: list[memory.Address] = ENTRYPOINTS,
+    leaders: set[memory.Address] = set(),
 ) -> dict[memory.Address, Block]:
     blocks: dict[memory.Address, Block] = {}
     work = list(starts)
@@ -83,8 +91,17 @@ def read_blocks(
         start = work.pop()
         if start in blocks:
             continue
-        block = read_block(rom, start)
+        block = read_block(rom, start, leaders)
         blocks[start] = block
         work.extend(block.successors)
         work.extend(block.calls)
     return blocks
+
+
+def read_blocks(
+    rom: memory.ROM,
+    starts: list[memory.Address] = ENTRYPOINTS,
+) -> dict[memory.Address, Block]:
+    blocks = read_blocks_with_leaders(rom, starts)
+    leaders = set(blocks.keys())
+    return read_blocks_with_leaders(rom, starts, leaders)
