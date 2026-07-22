@@ -1,7 +1,7 @@
 import dataclasses
 from typing import Optional
 
-from recompile.e0c6200 import insn, memory
+from recompile.e0c6200 import indirect, insn, memory
 
 ENTRYPOINTS: list[memory.Address] = [
     memory.Address.parse(addr)
@@ -20,7 +20,6 @@ ENTRYPOINTS: list[memory.Address] = [
 @dataclasses.dataclass
 class Block:
     start: memory.Address
-    indirect: bool = dataclasses.field(default=False)
     calls: list[memory.Address] = dataclasses.field(
         default_factory=list[memory.Address]
     )
@@ -30,7 +29,10 @@ class Block:
 
 
 def read_block(
-    rom: memory.ROM, start: memory.Address, leaders: set[memory.Address] = set()
+    rom: memory.ROM,
+    targets: indirect.IndirectTargets,
+    start: memory.Address,
+    leaders: set[memory.Address] = set(),
 ) -> Block:
     block = Block(start=start)
     addr = start
@@ -62,7 +64,15 @@ def read_block(
                 block.successors = [resolve(step)]
                 break
             case insn.JPBA():
-                block.indirect = True
+                if addr not in targets:
+                    raise ValueError(f"{addr.fmt()}: missing JPBA resolution strategy")
+                match targets[addr]:
+                    case indirect.ReturnTable():
+                        pass
+                    case indirect.DispatchTable(base, stride, count):
+                        for i in range(count):
+                            entry = memory.Address.parse(base.raw() + i * stride)
+                            block.successors.append(entry)
                 break
             case insn.JP_COND(step):
                 block.successors = [resolve(step), addr.next()]
@@ -82,6 +92,7 @@ def read_block(
 
 def read_blocks_with_leaders(
     rom: memory.ROM,
+    targets: indirect.IndirectTargets,
     starts: list[memory.Address] = ENTRYPOINTS,
     leaders: set[memory.Address] = set(),
 ) -> dict[memory.Address, Block]:
@@ -91,7 +102,7 @@ def read_blocks_with_leaders(
         start = work.pop()
         if start in blocks:
             continue
-        block = read_block(rom, start, leaders)
+        block = read_block(rom, targets, start, leaders)
         blocks[start] = block
         work.extend(block.successors)
         work.extend(block.calls)
@@ -100,8 +111,9 @@ def read_blocks_with_leaders(
 
 def read_blocks(
     rom: memory.ROM,
+    targets: indirect.IndirectTargets,
     starts: list[memory.Address] = ENTRYPOINTS,
 ) -> dict[memory.Address, Block]:
-    blocks = read_blocks_with_leaders(rom, starts)
+    blocks = read_blocks_with_leaders(rom, targets, starts)
     leaders = set(blocks.keys())
-    return read_blocks_with_leaders(rom, starts, leaders)
+    return read_blocks_with_leaders(rom, targets, starts, leaders)

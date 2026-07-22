@@ -1,12 +1,17 @@
-from recompile.e0c6200 import cfg, memory
+import hashlib
+
+from recompile.e0c6200 import cfg, indirect, memory
 
 
 def main() -> None:
     with open("DigimonV1JA.bin", "rb") as f:
         data = f.read()
-    blocks = cfg.read_blocks(memory.ROM(data=data))
-    num_indirect_blocks = sum(1 for block in blocks.values() if block.indirect)
-    print(f"{len(blocks)} blocks identified ({num_indirect_blocks} indirect)")
+    shasum = hashlib.sha1(data).hexdigest()
+    if shasum not in indirect.ROM_INDIRECT_TARGETS:
+        raise ValueError(f"unsupported ROM (sha1={shasum})")
+    targets = indirect.ROM_INDIRECT_TARGETS[shasum]
+    blocks = cfg.read_blocks(memory.ROM(data=data), targets)
+    print(f"{len(blocks)} blocks identified")
 
 
 if __name__ == "__main__":
