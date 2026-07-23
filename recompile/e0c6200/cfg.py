@@ -28,6 +28,13 @@ class Block:
     )
 
 
+@dataclasses.dataclass
+class Blocks:
+    blocks: dict[memory.Address, Block]
+    targets: indirect.IndirectTargets
+    leaders: set[memory.Address]
+
+
 def read_block(
     rom: memory.ROM,
     targets: indirect.IndirectTargets,
@@ -113,7 +120,12 @@ def read_blocks(
     rom: memory.ROM,
     targets: indirect.IndirectTargets,
     starts: list[memory.Address] = ENTRYPOINTS,
-) -> dict[memory.Address, Block]:
+) -> Blocks:
     blocks = read_blocks_with_leaders(rom, targets, starts)
     leaders = set(blocks.keys())
-    return read_blocks_with_leaders(rom, targets, starts, leaders)
+    blocks = read_blocks_with_leaders(rom, targets, starts, leaders)
+    return Blocks(
+        blocks=blocks,
+        targets=targets,
+        leaders=leaders,
+    )
