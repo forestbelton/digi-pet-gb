@@ -155,7 +155,9 @@ class Operation:
     @property
     def reads(self) -> set[Location]:
         match self.op:
-            case Operator.ADC | Operator.RLC | Operator.RRC | Operator.SBC:
+            case Operator.ADC | Operator.SBC:
+                return {Flag.C, Flag.D, *self._arg_reads()}
+            case Operator.RLC | Operator.RRC:
                 return {Flag.C, *self._arg_reads()}
             case (
                 Operator.HALT
@@ -175,9 +177,10 @@ class Operation:
                 if is_location(src):
                     src_reads = src.reads
                 return dst_reads | src_reads
+            case Operator.ADD | Operator.SUB:
+                return {Flag.D, *self._arg_reads()}
             case (
                 Operator.AND
-                | Operator.ADD
                 | Operator.CP
                 | Operator.DEC
                 | Operator.INC
@@ -185,7 +188,6 @@ class Operation:
                 | Operator.OR
                 | Operator.NOP
                 | Operator.PUSH
-                | Operator.SUB
                 | Operator.XOR
             ):
                 return self._arg_reads()
