@@ -27,3 +27,28 @@ jobs:
           python-version: "3.14"
       - run: pip install pyright==1.1.411
       - run: pyright
+
+  build:
+    name: make
+    runs-on: ubuntu-latest
+    env:
+      # Pin RGBDS to the version the project is developed against.
+      RGBDS_VERSION: "1.0.1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install RGBDS ${{ env.RGBDS_VERSION }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpng16-16
+          curl -fsSL "https://github.com/gbdev/rgbds/releases/download/v${RGBDS_VERSION}/rgbds-linux-x86_64.tar.xz" -o rgbds.tar.xz
+          mkdir -p "$HOME/.local/rgbds"
+          tar -xJf rgbds.tar.xz -C "$HOME/.local/rgbds"
+          echo "$HOME/.local/rgbds" >> "$GITHUB_PATH"
+      - name: Restore ROM from secret
+        env:
+          SOURCE_ROM_BASE64: ${{ secrets.SOURCE_ROM_BASE64 }}
+        run: echo "$SOURCE_ROM_BASE64" | base64 --decode > DigimonV1JA.bin
+      - run: make
