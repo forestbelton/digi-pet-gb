@@ -8,6 +8,20 @@ A recompilation project to run the [Digital Monster](https://en.wikipedia.org/wi
 | ----------------- | ---------------------------------------- |
 | `DigimonV1JA.bin` | 1dde9b0aa81c8f4a1e22d3a79d4743833fc6cba7 |
 
+## Dependencies
+
+Make sure you have [make](https://www.gnu.org/software/make/manual/make.html), [Python](https://www.python.org/), and [rgbds](https://rgbds.gbdev.io/) installed.
+
 ## Build
 
-Coming soon!
+From the project root:
+
+```
+$ make
+```
+
+`DigimonV1JA.gb` should be produced in the same directory. If you'd like to override the source ROM used:
+
+```
+$ SOURCE_ROM=<path/to/rom.bin> make
+```

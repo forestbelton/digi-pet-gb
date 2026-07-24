@@ -8,7 +8,10 @@ class UnsupportedInstructionError(Exception):
 
 
 def generate(program: lift.Program) -> list[str]:
-    out: list[str] = []
+    out: list[str] = [
+        'INCLUDE "prologue.inc"',
+        "",
+    ]
     for block in program.blocks.values():
         out.extend(generate_block(block))
     return out
