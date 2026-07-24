@@ -1,6 +1,7 @@
+import dataclasses
 from typing import Optional
 
-from recompile.e0c6200 import cfg, indirect, insn, memory
+from recompile.e0c6200 import cfg, insn, memory
 from recompile.ir import ir
 
 R_OPERANDS: dict[int, ir.Operand] = {
@@ -18,26 +19,27 @@ COND_FLAGS: dict[insn.FlagCondition, tuple[ir.Flag, bool]] = {
 }
 
 
-def blocks(rom: memory.ROM, cfg_blocks: cfg.Blocks) -> dict[memory.Address, ir.Block]:
-    out: dict[memory.Address, ir.Block] = {}
-    for start, cfg_block in cfg_blocks.blocks.items():
-        out[start] = block(rom, cfg_blocks.targets, cfg_blocks.leaders, cfg_block)
-    return out
+@dataclasses.dataclass
+class Program:
+    blocks: dict[memory.Address, ir.Block]
 
 
-def block(
-    rom: memory.ROM,
-    targets: indirect.IndirectTargets,
-    leaders: set[memory.Address],
-    cfg_block: cfg.Block,
-) -> ir.Block:
+def program(cfg_program: cfg.Program) -> Program:
+    blocks: dict[memory.Address, ir.Block] = {}
+    for start, cfg_block in cfg_program.blocks.items():
+        blocks[start] = block(cfg_program, cfg_block)
+    return Program(blocks=blocks)
+
+
+def block(cfg_program: cfg.Program, cfg_block: cfg.Block) -> ir.Block:
     insns: list[ir.Insn] = []
     terminator: Optional[ir.Terminator] = None
     call_index = 0
 
     addr = cfg_block.start
     while True:
-        ins = insn.parse(rom.at(addr))
+        ins = insn.parse(cfg_program.rom.at(addr))
+        insns.append(ir.Marker(addr, ins))
         match ins:
             case insn.ACPX_MX_R(r):
                 insns.append(ir.Operation(ir.Operator.ADC, ir.MX, R_OPERANDS[r]))
@@ -62,7 +64,7 @@ def block(
             case insn.AND_R_I(r, i):
                 insns.append(_op_r_i(ir.Operator.AND, r, i))
             case insn.CALL() | insn.CALZ():
-                insns.append(ir.Call(cfg_block.calls[call_index]))
+                insns.append(ir.Call(addr=addr, target=cfg_block.calls[call_index]))
                 call_index += 1
             case insn.CP_R_I(r, i):
                 insns.append(_op_r_i(ir.Operator.CP, r, i))
@@ -87,11 +89,8 @@ def block(
                 terminator = ir.Jump(target=cfg_block.successors[0])
                 break
             case insn.JPBA():
-                match targets[addr]:
-                    case indirect.ReturnTable():
-                        terminator = ir.Return()
-                    case indirect.DispatchTable():
-                        terminator = ir.Dispatch(cfg_block.successors)
+                table = cfg_program.targets[addr]
+                terminator = ir.Dispatch(table)
                 break
             case insn.JP_COND(_step, cond):
                 assert len(cfg_block.successors) == 2
@@ -260,7 +259,7 @@ def block(
             case _:
                 raise NotImplementedError(f"unsupported instruction: {ins}")
         addr = addr.next()
-        if addr in leaders:
+        if addr in cfg_program.leaders:
             terminator = ir.Jump(target=addr)
             break
 

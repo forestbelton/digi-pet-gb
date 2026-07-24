@@ -2,7 +2,7 @@ import dataclasses
 import enum
 from typing import Literal, TypeIs
 
-from recompile.e0c6200 import memory
+from recompile.e0c6200 import memory, indirect, insn
 
 
 class Flag(enum.Enum):
@@ -52,6 +52,14 @@ class Register(enum.Enum):
         if self == Register.F:
             return {Flag.I, Flag.D, Flag.Z, Flag.C}
         return {self}
+
+
+def ptr_base(
+    r: Literal[Register.XH, Register.XL, Register.YH, Register.YL],
+) -> Literal["X", "Y"]:
+    if r == Register.XH or r == Register.XL:
+        return "X"
+    return "Y"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -155,7 +163,17 @@ class Operation:
     @property
     def reads(self) -> set[Location]:
         match self.op:
-            case Operator.ADC | Operator.SBC:
+            case Operator.ADC:
+                locs = {Flag.C, *self._arg_reads()}
+                if self.args[0] not in {
+                    Register.XH,
+                    Register.XL,
+                    Register.YH,
+                    Register.YL,
+                }:
+                    locs.add(Flag.D)
+                return locs
+            case Operator.SBC:
                 return {Flag.C, Flag.D, *self._arg_reads()}
             case Operator.RLC | Operator.RRC:
                 return {Flag.C, *self._arg_reads()}
@@ -242,10 +260,17 @@ class Operation:
 
 @dataclasses.dataclass
 class Call:
+    addr: memory.Address
     target: memory.Address
 
 
-Insn = Operation | Call
+@dataclasses.dataclass
+class Marker:
+    addr: memory.Address
+    raw: insn.Insn
+
+
+Insn = Call | Operation | Marker
 
 
 @dataclasses.dataclass
@@ -268,7 +293,7 @@ class Return:
 
 @dataclasses.dataclass
 class Dispatch:
-    targets: list[memory.Address]
+    table: indirect.DispatchTable
 
 
 Terminator = Jump | CondJump | Return | Dispatch

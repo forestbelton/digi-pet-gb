@@ -1,6 +1,6 @@
 # digi-pet-gb
 
-A recompilation project to run the [Digital Monster](https://en.wikipedia.org/wiki/Digital_Monster) virtual pet on the Game Boy.
+A recompilation project to run the [Digital Monster](https://en.wikipedia.org/wiki/Digital_Monster) virtual pet on the Game Boy. 100% human written.
 
 **NOTE**: A ROM dump is required to build the Game Boy ROM. Supported ROMs are listed below:
 

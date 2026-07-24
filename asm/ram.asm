@@ -1,0 +1,17 @@
+SECTION "WRAM", WRAM0
+
+wRAM:: DS 768
+
+SECTION "HRAM", HRAM
+
+hA:: DS 1
+hB:: DS 1
+hF:: DS 1
+
+hX::
+hXP:: DS 1
+hXHL:: DS 1
+
+hY::
+hYP:: DS 1
+hYHL:: DS 1

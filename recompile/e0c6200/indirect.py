@@ -10,13 +10,18 @@ class DispatchTable:
     count: int = dataclasses.field(default=0x10)
 
 
-@dataclasses.dataclass
-class ReturnTable:
-    addr: memory.Address
-    length: int
+# NB: Disabled until we can act intelligently on this pattern. For now, lifting
+# to DispatchTable will get us to generated code without needing to support
+# these separately. Uniform support will be difficult because some of the
+# ReturnTable targets are more than just RETD-lists.
+#
+# @dataclasses.dataclass
+# class ReturnTable:
+#     addr: memory.Address
+#     length: int
 
 
-IndirectTarget = DispatchTable | ReturnTable
+IndirectTarget = DispatchTable  # | ReturnTable
 
 IndirectTargets = dict[memory.Address, IndirectTarget]
 
@@ -29,21 +34,21 @@ ROM_INDIRECT_TARGETS: dict[str, IndirectTargets] = {
         memory.Address(bank=0, page=0, step=0xFB): DispatchTable(
             addr=memory.Address(bank=0, page=0xF, step=0x00),
         ),
-        memory.Address(bank=0, page=0x4, step=0x0F): ReturnTable(
+        memory.Address(bank=0, page=0x4, step=0x0F): DispatchTable(
             addr=memory.Address(bank=0, page=4, step=0),
-            length=9,
+            count=9,
         ),
-        memory.Address(bank=0, page=0x5, step=0x20): ReturnTable(
+        memory.Address(bank=0, page=0x5, step=0x20): DispatchTable(
             addr=memory.Address(bank=0, page=5, step=0),
-            length=16,
+            count=16,
         ),
-        memory.Address(bank=0, page=0x6, step=0x33): ReturnTable(
+        memory.Address(bank=0, page=0x6, step=0x33): DispatchTable(
             addr=memory.Address(bank=0, page=6, step=0x10),
-            length=32,
+            count=32,
         ),
-        memory.Address(bank=0, page=0x6, step=0x4B): ReturnTable(
+        memory.Address(bank=0, page=0x6, step=0x4B): DispatchTable(
             addr=memory.Address(bank=0, page=6, step=0x02),
-            length=14,
+            count=14,
         ),
         memory.Address(bank=0, page=0xC, step=0x27): DispatchTable(
             addr=memory.Address(bank=0, page=0xC, step=0x00)

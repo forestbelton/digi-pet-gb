@@ -29,7 +29,8 @@ class Block:
 
 
 @dataclasses.dataclass
-class Blocks:
+class Program:
+    rom: memory.ROM
     blocks: dict[memory.Address, Block]
     targets: indirect.IndirectTargets
     leaders: set[memory.Address]
@@ -73,13 +74,10 @@ def read_block(
             case insn.JPBA():
                 if addr not in targets:
                     raise ValueError(f"{addr.fmt()}: missing JPBA resolution strategy")
-                match targets[addr]:
-                    case indirect.ReturnTable():
-                        pass
-                    case indirect.DispatchTable(base, stride, count):
-                        for i in range(count):
-                            entry = memory.Address.parse(base.raw() + i * stride)
-                            block.successors.append(entry)
+                table = targets[addr]
+                for i in range(table.count):
+                    entry = memory.Address.parse(table.addr.raw() + i * table.stride)
+                    block.successors.append(entry)
                 break
             case insn.JP_COND(step):
                 block.successors = [resolve(step), addr.next()]
@@ -116,15 +114,16 @@ def read_blocks_with_leaders(
     return blocks
 
 
-def read_blocks(
+def program(
     rom: memory.ROM,
     targets: indirect.IndirectTargets,
     starts: list[memory.Address] = ENTRYPOINTS,
-) -> Blocks:
+) -> Program:
     blocks = read_blocks_with_leaders(rom, targets, starts)
     leaders = set(blocks.keys())
     blocks = read_blocks_with_leaders(rom, targets, starts, leaders)
-    return Blocks(
+    return Program(
+        rom=rom,
         blocks=blocks,
         targets=targets,
         leaders=leaders,
