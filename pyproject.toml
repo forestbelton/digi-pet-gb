@@ -1,0 +1,7 @@
+[tool.black]
+target-version = ["py314"]
+
+[tool.pyright]
+include = ["recompile", "scripts"]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
