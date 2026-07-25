@@ -265,8 +265,8 @@ def generate_block(block: ir.Block) -> list[str]:
             case ir.Operator.PUSH:
                 assert isinstance(insn.args[0], ir.Register)
                 lines.extend(ld_a_operand(insn.args[0]))
-                lines.append(f"LD HL, SP + 0")
-                lines.append(f"LD [HL-], A")
+                lines.append(f"LD HL, SP - 1")
+                lines.append(f"LD [HL], A")
                 lines.append(f"LD SP, HL")
             case ir.Operator.RLC:
                 lines.extend(ld_a_operand(insn.args[0]))
