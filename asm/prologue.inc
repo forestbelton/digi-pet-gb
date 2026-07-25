@@ -18,8 +18,8 @@ MACRO FAR_JUMP
     ASSERT _NARG == 1 || _NARG == 2
     IF _NARG == 1
         LD A, BANK(\1)
-        LD [$2000], A
-        JP \1
+        LD HL, \1
+        JP _far_jump
     ELSE
         ASSERT !STRCMP("\1", "Z") || !STRCMP("\1", "NZ") || !STRCMP("\1", "C") || !STRCMP("\1", "NC")
         IF !STRCMP("\1", "Z")
@@ -32,8 +32,8 @@ MACRO FAR_JUMP
             JR C, .done\@
         ENDC
         LD A, BANK(\2)
-        LD [$2000], A
-        JP \2
+        LD HL, \2
+        JP _far_jump
 .done\@:
     ENDC
 ENDM
@@ -59,5 +59,9 @@ _far_call::
     LD A, B
     LD [$2000], A
     RET
+
+_far_jump::
+    LD [$2000], A
+    JP HL
 
 ENDC
