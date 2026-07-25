@@ -150,6 +150,18 @@ def block(cfg_program: cfg.Program, cfg_block: cfg.Block) -> ir.Block:
                 insns.append(
                     ir.Operation(ir.Operator.LD, R_OPERANDS[r], ir.Register.XP)
                 )
+            case insn.LD_R_YH(r):
+                insns.append(
+                    ir.Operation(ir.Operator.LD, R_OPERANDS[r], ir.Register.YH)
+                )
+            case insn.LD_R_YL(r):
+                insns.append(
+                    ir.Operation(ir.Operator.LD, R_OPERANDS[r], ir.Register.YL)
+                )
+            case insn.LD_R_YP(r):
+                insns.append(
+                    ir.Operation(ir.Operator.LD, R_OPERANDS[r], ir.Register.YP)
+                )
             case insn.LD_SPL_R() | insn.LD_SPH_R():
                 pass
             case insn.LD_X_E(e):
