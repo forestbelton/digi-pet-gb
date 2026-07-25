@@ -15,7 +15,7 @@ def main() -> None:
     for offset in range(len(rom.data) // 2):
         addr = memory.Address.parse(offset)
         insn_str = disasm.render_insn(insn.parse(rom.at(addr)))
-        print(insn_str)
+        print(f"{addr.fmt()}\t{insn_str}")
 
 
 if __name__ == "__main__":
