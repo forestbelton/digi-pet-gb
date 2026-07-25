@@ -106,7 +106,7 @@ def ld_loc_a(l: ir.Location) -> list[str]:
 
 
 def generate_block(block: ir.Block) -> list[str]:
-    lines: list[str] = []
+    lines: list[str] = [f'SECTION "{_address(block.start)}", ROMX', ""]
     for insn in block.insns:
         if isinstance(insn, ir.Call):
             lines.append(f"FAR_CALL {_address(insn.target)}")
@@ -115,7 +115,7 @@ def generate_block(block: ir.Block) -> list[str]:
             # (RETS cannot skip a page prefix), matching the CFG which does not
             # lift addr.next().next() in that case.
             if insn.skips:
-                lines.append(f"JP C, {_address(insn.addr.next().next())}")
+                lines.append(f"FAR_JUMP C, {_address(insn.addr.next().next())}")
             continue
         elif isinstance(insn, ir.Marker):
             lines.append(f"{_address(insn.addr)}:")
@@ -382,7 +382,7 @@ def generate_block(block: ir.Block) -> list[str]:
                 raise UnsupportedInstructionError(insn)
     match block.terminator:
         case ir.Jump(target):
-            lines.append(f"JP {_address(target)}")
+            lines.append(f"FAR_JUMP {_address(target)}")
         case ir.Return(offset):
             # NB: We set the carry flag if we are generating a RETS instruction
             # so that the call site knows to skip the instruction after it
@@ -405,11 +405,11 @@ def generate_block(block: ir.Block) -> list[str]:
                     f"LD A, [hF]",
                     f"BIT {flag_bit}, A",
                     (
-                        f"JP Z, {_address(target)}"
+                        f"FAR_JUMP Z, {_address(target)}"
                         if negate
-                        else f"JP NZ, {_address(target)}"
+                        else f"FAR_JUMP NZ, {_address(target)}"
                     ),
-                    f"JP {_address(fallthrough)}",
+                    f"FAR_JUMP {_address(fallthrough)}",
                 ]
             )
         case ir.Dispatch(table):
@@ -427,19 +427,27 @@ def generate_block(block: ir.Block) -> list[str]:
                     "ADD HL, BC",
                     "ADD HL, BC",
                     "ADD HL, BC",
+                    "ADD HL, BC",
+                    "ADD HL, BC",
+                    "ADD HL, BC",
+                    "ADD HL, BC",
+                    "ADD HL, BC",
                     "JP HL",
                 ]
             )
             lines.append(".jump_table:")
             entry_addr = table.addr
             for _ in range(table.count):
-                lines.append(f"JP {_address(entry_addr)}")
+                lines.append(f"FAR_JUMP {_address(entry_addr)}")
                 entry_addr = entry_addr.next()
                 for _ in range(table.stride - 1):
-                    lines.append(f"JP $0000 ; STUB")
+                    lines.append(f"DB $00, $00, $00, $00, $00, $00, $00, $00 ; STUB")
                     entry_addr = entry_addr.next()
     lines.append("")
-    return [line if line.endswith(":") else f"\t{line}" for line in lines]
+    return [
+        line if line.endswith(":") or line.startswith("SECTION") else f"\t{line}"
+        for line in lines
+    ]
 
 
 def _address(addr: memory.Address) -> str:

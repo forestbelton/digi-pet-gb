@@ -1,6 +1,55 @@
 IF !DEF(PROLOGUE)
 DEF PROLOGUE EQU 1
 
-SECTION "Game ROM", ROM0[$2000]
+MACRO FAR_CALL
+    LD A, BANK(\1)
+    LD B, BANK(@)
+    CP B
+    JR NZ, .far
+    CALL \1
+    JR .done
+.far:
+    LD HL, \1
+    CALL _far_call
+.done:
+ENDM
+
+MACRO FAR_JUMP
+    ASSERT _NARG == 1 || _NARG == 2
+    IF _NARG == 1
+        LD A, BANK(\1)
+        LD [$2000], A
+        JP \1
+    ELSE
+        ASSERT !STRCMP("\1", "Z") || !STRCMP("\1", "NZ") || !STRCMP("\1", "C") || !STRCMP("\1", "NC")
+        IF !STRCMP("\1", "Z")
+            JR NZ, .done\@
+        ELIF !STRCMP("\1", "NZ")
+            JR Z, .done\@
+        ELIF !STRCMP("\1", "C")
+            JR NC, .done\@
+        ELIF !STRCMP("\1", "NC")
+            JR C, .done\@
+        ENDC
+        LD A, BANK(\2)
+        LD [$2000], A
+        JP \2
+.done\@:
+    ENDC
+ENDM
+
+SECTION "Utilities", ROM0
+
+_far_call::
+    PUSH BC
+    LD [$2000], A
+    LD BC, .done
+    PUSH BC
+    JP HL
+.done:
+    POP BC
+    LD A, B
+    LD [$2000], A
+    RET
 
 ENDC

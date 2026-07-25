@@ -11,12 +11,12 @@ OFILES := $(ASMFILES:%.asm=%.o)
 
 $(TARGET_ROM): $(OFILES)
 	rgblink $^ -o $@
-	rgbfix -v -p 0xFF -t "$(ROM_TITLE)" $@
+	rgbfix -v -m MBC5 -p 0xFF -t "$(ROM_TITLE)" $@
 
 asm/rom.asm: $(SOURCE_ROM) $(PYFILES)
 	python -m recompile -o $@ $<
 
-%.o: %.asm
+%.o: %.asm asm/prologue.inc
 	rgbasm -I asm -o $@ $<
 
 .PHONY: clean
