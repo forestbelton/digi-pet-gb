@@ -36,6 +36,18 @@ class Program:
     leaders: set[memory.Address]
 
 
+def _call_successors(rom: memory.ROM, addr: memory.Address) -> list[memory.Address]:
+    # A call returns to addr.next(). If the callee performs a RETS, the
+    # instruction returned to is actually skipped. As a heuristic, we inspect
+    # the instruction following the call to see if it's a PSET: since a PSET
+    # can't be skipped over without meaningfully changing the following
+    # instruction, we assume there is no possible RETS for this CALL and don't
+    # add an additional successor for the skip.
+    if isinstance(insn.parse(rom.at(addr.next())), insn.PSET):
+        return [addr.next()]
+    return [addr.next(), addr.next().next()]
+
+
 def read_block(
     rom: memory.ROM,
     targets: indirect.IndirectTargets,
@@ -62,10 +74,12 @@ def read_block(
         match insn.parse(raw_insn):
             case insn.CALL(step):
                 block.calls.append(resolve(step))
-                pending = None
+                block.successors = _call_successors(rom, addr)
+                break
             case insn.CALZ(step):
                 block.calls.append(resolve(step).with_page(0))
-                pending = None
+                block.successors = _call_successors(rom, addr)
+                break
             case insn.PSET(p):
                 pending = p
             case insn.JP(step):

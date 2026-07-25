@@ -64,7 +64,14 @@ def block(cfg_program: cfg.Program, cfg_block: cfg.Block) -> ir.Block:
             case insn.AND_R_I(r, i):
                 insns.append(_op_r_i(ir.Operator.AND, r, i))
             case insn.CALL() | insn.CALZ():
-                insns.append(ir.Call(addr=addr, target=cfg_block.calls[call_index]))
+                gap = insn.parse(cfg_program.rom.at(addr.next()))
+                insns.append(
+                    ir.Call(
+                        addr=addr,
+                        target=cfg_block.calls[call_index],
+                        skips=not isinstance(gap, insn.PSET),
+                    )
+                )
                 call_index += 1
             case insn.CP_R_I(r, i):
                 insns.append(_op_r_i(ir.Operator.CP, r, i))

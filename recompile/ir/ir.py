@@ -262,6 +262,11 @@ class Operation:
 class Call:
     addr: memory.Address
     target: memory.Address
+    # Whether a RETS from the callee skips the gap instruction to
+    # addr.next().next(). False when the gap is a PSET (RETS cannot skip a page
+    # prefix), in which case no skip target is emitted or lifted. See
+    # `_call_successors` in `e0c6200.cfg` for more information.
+    skips: bool
 
 
 @dataclasses.dataclass

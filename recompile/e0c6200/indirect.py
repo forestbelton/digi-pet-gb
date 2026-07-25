@@ -108,5 +108,10 @@ ROM_INDIRECT_TARGETS: dict[str, IndirectTargets] = {
         memory.Address(bank=1, page=0xF, step=0x12): DispatchTable(
             addr=memory.Address(bank=1, page=0xF, step=0x00)
         ),
+        memory.Address(bank=1, page=0xE, step=0x47): DispatchTable(
+            addr=memory.Address(bank=1, page=0xE, step=0x00),
+            stride=2,
+            count=32,
+        ),
     }
 }

@@ -109,10 +109,13 @@ def generate_block(block: ir.Block) -> list[str]:
     lines: list[str] = []
     for insn in block.insns:
         if isinstance(insn, ir.Call):
-            lines.append(f"CALL {_address(insn.target)}")
-            # NB: Conditional jump needed after call to correctly handle
-            # distinction between RET and RETS
-            lines.append(f"JP C, {_address(insn.addr.next().next())}")
+            lines.append(f"FAR_CALL {_address(insn.target)}")
+            # NB: Conditional jump needed after call to correctly handle the
+            # distinction between RET and RETS. Skipped when the gap is a PSET
+            # (RETS cannot skip a page prefix), matching the CFG which does not
+            # lift addr.next().next() in that case.
+            if insn.skips:
+                lines.append(f"JP C, {_address(insn.addr.next().next())}")
             continue
         elif isinstance(insn, ir.Marker):
             lines.append(f"{_address(insn.addr)}:")
