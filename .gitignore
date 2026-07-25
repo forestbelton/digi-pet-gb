@@ -4,3 +4,4 @@ asm/rom.asm
 *.bin
 *.gb
 *.o
+*.sym
