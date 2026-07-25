@@ -38,6 +38,14 @@ MACRO FAR_JUMP
     ENDC
 ENDM
 
+SECTION "Entry point", ROM0[$100]
+_entry:
+    jp _start
+
+SECTION "Program start", ROM0[$150]
+_start:
+    FAR_JUMP rom_0_1_00
+
 SECTION "Utilities", ROM0
 
 _far_call::
