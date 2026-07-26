@@ -45,6 +45,10 @@ _start:
 
 SECTION "Utilities", ROM0
 
+; Call a subroutine in another ROM bank.
+; @param A  Destination ROM bank
+; @param B  Source ROM bank
+; @param HL Subroutine address
 _far_call::
     PUSH BC
     LD [$2000], A
@@ -57,8 +61,40 @@ _far_call::
     LD [$2000], A
     RET
 
+; Jump to another ROM bank.
+; @param A  Destination ROM bank
+; @param HL Destination address
 _far_jump::
     LD [$2000], A
     JP HL
+
+; Read a nibble from E0C6200 RAM.
+; @param HL Address of index pointer (e.g. X, Y)
+; @return A Nibble from RAM
+; @clobber BC, HL
+_read_ram::
+    LD A, [HL+]
+    LD B, A
+    LD A, [HL+]
+    LD C, A
+    LD HL, wRAM
+    ADD HL, BC
+    LD A, [HL]
+    RET
+
+; Write a nibble to E0C6200 RAM.
+; @param A  Nibble to write
+; @param HL Address of index pointer (e.g. X, Y)
+; @clobber A, BC, D, HL
+_write_ram::
+    LD D, A
+    LD A, [HL+]
+    LD B, A
+    LD A, [HL+]
+    LD C, A
+    LD HL, wRAM
+    ADD HL, BC
+    LD [HL], D
+    RET
 
 ENDC

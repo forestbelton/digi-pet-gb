@@ -46,13 +46,8 @@ def ld_a_operand(o: ir.Operand) -> list[str]:
             else:
                 name = ptr.loc
                 return [
-                    f"LD A, [h{name}P]",
-                    f"LD H, A",
-                    f"LD A, [h{name}HL]",
-                    f"LD L, A",
-                    f"LD BC, wRAM",
-                    f"ADD HL, BC",
-                    f"LD A, [HL]",
+                    f"LD HL, h{name}P",
+                    f"CALL _read_ram",
                 ]
         case _:
             raise ValueError(f"invalid operand {o}")
@@ -92,14 +87,8 @@ def ld_loc_a(l: ir.Location) -> list[str]:
             else:
                 name = ptr.loc
                 return [
-                    f"LD D, A",
-                    f"LD A, [h{name}P]",
-                    f"LD H, A",
-                    f"LD A, [h{name}HL]",
-                    f"LD L, A",
-                    f"LD BC, wRAM",
-                    f"ADD HL, BC",
-                    f"LD [HL], D",
+                    f"LD HL, h{name}P",
+                    f"CALL _write_ram",
                 ]
         case _:
             raise ValueError(f"invalid location {l}")
