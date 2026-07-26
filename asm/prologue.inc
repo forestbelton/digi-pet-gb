@@ -4,11 +4,6 @@ DEF PROLOGUE EQU 1
 MACRO FAR_CALL
     LD A, BANK(\1)
     LD B, BANK(@)
-    CP B
-    JR NZ, .far
-    CALL \1
-    JR .done
-.far:
     LD HL, \1
     CALL _far_call
 .done:
