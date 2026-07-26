@@ -5,3 +5,4 @@ asm/rom.asm
 *.gb
 *.o
 *.sym
+*.map
