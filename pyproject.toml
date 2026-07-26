@@ -2,6 +2,7 @@
 target-version = ["py314"]
 
 [tool.pyright]
-include = ["recompile", "scripts"]
+include = ["recompile", "tools"]
+exclude = ["tools/brickemu/**/*.py"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
