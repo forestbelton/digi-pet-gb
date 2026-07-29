@@ -15,3 +15,5 @@ hXHL:: DS 1
 hY::
 hYP:: DS 1
 hYHL:: DS 1
+
+hIO_CTRL_OSC:: DS 1

@@ -97,11 +97,18 @@ _read_ram::
         JP .read_io_stub
     ENDR
     JP .read_io_k0
-    REPT $3E
+    REPT $2F
+        JP .read_io_stub
+    ENDR
+    JP .read_io_ctrl_osc
+    REPT $E
         JP .read_io_stub
     ENDR
 .read_io_stub:
     XOR A
+    RET
+.read_io_ctrl_osc:
+    LDH A, [hIO_CTRL_OSC]
     RET
 .read_io_k0:
     LD A, $F
@@ -132,12 +139,20 @@ _write_ram::
     ADD HL, BC
     ADD HL, BC
     ADD HL, BC
+    LD A, D
     JP HL
 .write_io_table:
-    REPT $7F
+    REPT $70
+        JP .write_io_stub
+    ENDR
+    JP .write_io_ctrl_osc
+    REPT $0F
         JP .write_io_stub
     ENDR
 .write_io_stub:
+    RET
+.write_io_ctrl_osc:
+    LDH [hIO_CTRL_OSC], A
     RET
 
 ENDC
