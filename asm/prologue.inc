@@ -74,6 +74,8 @@ _far_jump::
 ; @clobber BC, HL
 _read_ram::
     LD A, [HL+]
+    CP $F
+    JR Z, .read_io
     LD B, A
     LD A, [HL+]
     LD C, A
@@ -81,6 +83,30 @@ _read_ram::
     ADD HL, BC
     LD A, [HL]
     RET
+.read_io:
+    LD A, [HL]
+    LD B, 0
+    LD C, A
+    LD HL, .read_io_table
+    ADD HL, BC
+    ADD HL, BC
+    ADD HL, BC
+    JP HL
+.read_io_table:
+    REPT $40
+        JP .read_io_stub
+    ENDR
+    JP .read_io_k0
+    REPT $7E
+        JP .read_io_stub
+    ENDR
+.read_io_stub:
+    XOR A
+    RET
+.read_io_k0:
+    LD A, $F
+    RET
+
 
 ; Write a nibble to E0C6200 RAM.
 ; @param A  Nibble to write
