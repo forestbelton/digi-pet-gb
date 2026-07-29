@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from pyboy import PyBoy
 
+from recompile.e0c6200 import insn
 from tools.brickemu.interconnect import Interconnect
 from tools.brickemu.cores.E0C6200 import E0C6200
 
@@ -28,6 +29,12 @@ This oracle operates by:
 - Compares control flow and architectural state each block boundary
 
 The first divergence between the two execution paths, if it exists, is reported.
+
+With --histogram, the reference trace also yields a dynamic opcode profile: how
+often each instruction class actually retires, as opposed to how often it appears
+in the ROM. The static and dynamic mixes differ sharply for bulk-init opcodes, so
+the profile is what decides whether a codegen optimization buys runtime or only
+size.
 """.strip()
 
 
@@ -66,6 +73,11 @@ class State:
 
 Trace = list[tuple[GBAddress, State]]
 
+# NB: Retired instruction count keyed by instruction class name. Totals over the
+# histogram are instructions retired, which is fewer than the clocks stepped
+# whenever the core sits in HALT or SLP.
+Histogram = dict[str, int]
+
 
 def load_address_map(symbol_path: str) -> AddressMap:
     e0c_gb_addrs: dict[E0CAddress, GBAddress] = {}
@@ -102,7 +114,9 @@ def e0c_addr(pc: int) -> E0CAddress:
     return E0CAddress(bank=pc >> 12 & 1, page=pc >> 8 & 0xF, step=pc & 0xFF)
 
 
-def trace_e0c(e0c_rom_path: str, addr_map: AddressMap, steps: int) -> Trace:
+def trace_e0c(
+    e0c_rom_path: str, addr_map: AddressMap, steps: int
+) -> tuple[Trace, Histogram]:
     class Stub:
         def audio_handler(self, channel: int, data: Any) -> None:
             pass
@@ -120,8 +134,10 @@ def trace_e0c(e0c_rom_path: str, addr_map: AddressMap, steps: int) -> Trace:
         Interconnect(Stub()),
     )
     cpu.reset()
+    rom = cpu.get_ROM()
 
     trace: Trace = []
+    histogram: Histogram = {}
     for _ in range(steps):
         gb_addr = addr_map.e0c_gb_addrs.get(e0c_addr(cpu._PC))
         if gb_addr and (not trace or trace[-1][0] != gb_addr):
@@ -143,8 +159,16 @@ def trace_e0c(e0c_rom_path: str, addr_map: AddressMap, steps: int) -> Trace:
                     ),
                 )
             )
+        # NB: The core retires at most one instruction per clock, and none at all
+        # while halted, so tally against the instruction counter rather than the
+        # loop index.
+        pc = cpu._PC
+        retired = cpu.istr_counter()
         cpu.clock()
-    return trace
+        if cpu.istr_counter() != retired:
+            name = insn.INSN_PARSERS[rom.get_word(pc * 2)].__name__
+            histogram[name] = histogram.get(name, 0) + 1
+    return trace, histogram
 
 
 def trace_gb(
@@ -199,6 +223,13 @@ def trace_gb(
     return trace, final_pc
 
 
+def print_histogram(histogram: Histogram, clocks: int) -> None:
+    retired = sum(histogram.values())
+    print(f"Dynamic opcode histogram: {retired} retired over {clocks} clocks")
+    for name, count in sorted(histogram.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"  {name:<16} {count:>8} {100 * count / retired:>5.1f}%")
+
+
 def main():
     parser = argparse.ArgumentParser(description=PROGRAM_DESCRIPTION)
     parser.add_argument("--steps", type=int, default=12000, help="E0C6200 instructions")
@@ -211,11 +242,17 @@ def main():
     parser.add_argument(
         "--gb-sym", type=str, default="DigimonV1JA.sym", help="GB symbols"
     )
+    parser.add_argument(
+        "--histogram", action="store_true", help="print dynamic opcode histogram"
+    )
     args = parser.parse_args()
 
     addr_map = load_address_map(args.gb_sym)
 
-    e0c_trace = trace_e0c(args.eoc_rom, addr_map, args.steps)
+    e0c_trace, histogram = trace_e0c(args.eoc_rom, addr_map, args.steps)
+    if args.histogram:
+        print_histogram(histogram, args.steps)
+
     gb_trace, final_pc = trace_gb(args.gb_rom, addr_map, args.frames, args.max_blocks)
     print(
         f"E0C blocks={len(e0c_trace)}, GB blocks={len(gb_trace)}, GB final PC=${final_pc:04X}"
