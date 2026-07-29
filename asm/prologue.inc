@@ -76,11 +76,11 @@ _read_ram::
     LD A, [HL+]
     CP $F
     JR Z, .read_io
+    ADD HIGH(wRAM)
     LD B, A
-    LD A, [HL+]
-    LD C, A
-    LD HL, wRAM
-    ADD HL, BC
+    LD A, [HL]
+    LD H, B
+    LD L, A
     LD A, [HL]
     RET
 .read_io:
@@ -97,7 +97,7 @@ _read_ram::
         JP .read_io_stub
     ENDR
     JP .read_io_k0
-    REPT $7E
+    REPT $3E
         JP .read_io_stub
     ENDR
 .read_io_stub:
@@ -115,12 +115,29 @@ _read_ram::
 _write_ram::
     LD D, A
     LD A, [HL+]
+    CP $F
+    JR Z, .write_io
+    ADD HIGH(wRAM)
     LD B, A
-    LD A, [HL+]
-    LD C, A
-    LD HL, wRAM
-    ADD HL, BC
+    LD A, [HL]
+    LD H, B
+    LD L, A
     LD [HL], D
+    RET
+.write_io:
+    LD A, [HL]
+    LD B, 0
+    LD C, A
+    LD HL, .write_io_table
+    ADD HL, BC
+    ADD HL, BC
+    ADD HL, BC
+    JP HL
+.write_io_table:
+    REPT $7F
+        JP .write_io_stub
+    ENDR
+.write_io_stub:
     RET
 
 ENDC
