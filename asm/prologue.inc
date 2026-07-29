@@ -1,12 +1,13 @@
 IF !DEF(PROLOGUE)
 DEF PROLOGUE EQU 1
 
+INCLUDE "hardware.inc"
+
 MACRO FAR_CALL
     LD A, BANK(\1)
     LD B, BANK(@)
     LD HL, \1
     CALL _far_call
-.done:
 ENDM
 
 MACRO FAR_JUMP
@@ -33,6 +34,9 @@ MACRO FAR_JUMP
     ENDC
 ENDM
 
+SECTION "Timer ISR", ROM0[$50]
+    JP _handle_timer
+
 SECTION "Header", ROM0[$100]
     JP _start
 
@@ -41,9 +45,50 @@ DS $150 - @, 0
 
 SECTION "Entrypoint", ROM0[$150]
 _start:
+    DI
+    ; Initialize HRAM
+    XOR A
+    LDH [hA], A
+    LDH [hB], A
+    LDH [hF], A
+    LDH [hXP], A
+    LDH [hXHL], A
+    LDH [hYP], A
+    LDH [hYHL], A
+    LDH [hIO_CTRL_OSC], A
+
+    ; Initialize timer
+    LD A, 240
+    LDH [rTMA], A
+    LD A, TAC_START | TAC_4KHZ
+    LDH [rTAC], A
+
+    ; Enable interrupts
+    LD A, IE_TIMER
+    LDH [rIE], A
+    EI
+
     FAR_JUMP rom_0_1_00
 
 SECTION "Utilities", ROM0
+
+_handle_timer::
+    PUSH AF
+    PUSH BC
+    PUSH DE
+    PUSH HL
+    ; NB: Check I flag is set
+    LDH A, [hF]
+    BIT 3, A
+    JR Z, .done
+    ; TODO: Check [hIT] and [hEIT]? (To be defined)
+    FAR_CALL rom_0_1_02
+.done:
+    POP HL
+    POP DE
+    POP BC
+    POP AF
+    RETI
 
 ; Call a subroutine in another ROM bank.
 ; @param A  Destination ROM bank
