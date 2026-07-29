@@ -1,6 +1,7 @@
 [tool.black]
 target-version = ["py314"]
 extend-exclude = "tools/brickemu"
+force-exclude = "tools/brickemu"
 
 [tool.pyright]
 include = ["recompile", "tools"]

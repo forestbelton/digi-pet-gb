@@ -426,6 +426,8 @@ class E0C6200():
             E0C6200._nop7                       #1 1 1 1  1 1 1 1  1 1 1 1
         )
 
+        self._io_handlers = []
+
     def examine(self):
         return {
             "PC": self._PC,
@@ -1143,6 +1145,8 @@ class E0C6200():
         elif (addr >= VRAM_PART2_OFFSET and addr < VRAM_PART2_OFFSET + VRAM_PART_SIZE):
             return self._VRAM[addr - VRAM_PART2_OFFSET + VRAM_PART_SIZE]
         elif (addr >= IORAM_OFFSET and addr < IORAM_OFFSET + IORAM_SIZE):
+            for f in self._io_handlers:
+                f("R", addr)
             io = self._io_tbl.get(addr)
             if (io != None):
                 return io[0](self)
@@ -1156,9 +1160,14 @@ class E0C6200():
         elif (addr >= VRAM_PART2_OFFSET and addr < VRAM_PART2_OFFSET + VRAM_PART_SIZE):
             self._VRAM[addr - VRAM_PART2_OFFSET + VRAM_PART_SIZE] = value & 0xF
         elif (addr >= IORAM_OFFSET and addr < IORAM_OFFSET + IORAM_SIZE):
+            for f in self._io_handlers:
+                f("W", addr)
             io = self._io_tbl.get(addr)
             if (io != None):
                 io[1](self, value)
+
+    def register_io_handler(self, f):
+        self._io_handlers.append(f)
 
     def get_A(self):
         return self._A

@@ -1,12 +1,13 @@
 import argparse
 import dataclasses
+import enum
 import pathlib
 import re
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from pyboy import PyBoy
 
-from recompile.e0c6200 import insn
+from recompile.e0c6200 import insn, memory
 from tools.brickemu.interconnect import Interconnect
 from tools.brickemu.cores.E0C6200 import E0C6200
 
@@ -71,12 +72,31 @@ class State:
     ram: tuple[int, ...]
 
 
-Trace = list[tuple[GBAddress, State]]
+Step = tuple[GBAddress, State]
 
 # NB: Retired instruction count keyed by instruction class name. Totals over the
 # histogram are instructions retired, which is fewer than the clocks stepped
 # whenever the core sits in HALT or SLP.
 Histogram = dict[str, int]
+
+
+class IOAccessType(enum.Enum):
+    R = "R"
+    W = "W"
+
+
+@dataclasses.dataclass
+class IOAccess:
+    type: IOAccessType
+    addr: memory.Address
+
+
+@dataclasses.dataclass
+class Trace:
+    steps: list[Step]
+    io_accesses: list[IOAccess]
+    histogram: Histogram | None = dataclasses.field(default=None)
+    final_pc: int | None = dataclasses.field(default=None)
 
 
 def load_address_map(symbol_path: str) -> AddressMap:
@@ -114,9 +134,21 @@ def e0c_addr(pc: int) -> E0CAddress:
     return E0CAddress(bank=pc >> 12 & 1, page=pc >> 8 & 0xF, step=pc & 0xFF)
 
 
-def trace_e0c(
-    e0c_rom_path: str, addr_map: AddressMap, steps: int
-) -> tuple[Trace, Histogram]:
+def trace_e0c(e0c_rom_path: str, addr_map: AddressMap, num_steps: int) -> Trace:
+    steps: list[Step] = []
+    histogram: Histogram = {}
+    io_accesses: list[IOAccess] = []
+
+    def add_io_access(
+        ty: Literal["R", "W"], addr: int, value: int | None = None
+    ) -> None:
+        io_accesses.append(
+            IOAccess(
+                type=IOAccessType[ty],
+                addr=memory.Address.parse(addr),
+            )
+        )
+
     class Stub:
         def audio_handler(self, channel: int, data: Any) -> None:
             pass
@@ -133,17 +165,16 @@ def trace_e0c(
         1060000,
         Interconnect(Stub()),
     )
+    cpu.register_io_handler(add_io_access)
     cpu.reset()
     rom = cpu.get_ROM()
 
-    trace: Trace = []
-    histogram: Histogram = {}
-    for _ in range(steps):
+    for _ in range(num_steps):
         gb_addr = addr_map.e0c_gb_addrs.get(e0c_addr(cpu._PC))
-        if gb_addr and (not trace or trace[-1][0] != gb_addr):
+        if gb_addr and (not steps or steps[-1][0] != gb_addr):
             st = cpu.examine()
             ram = list(st["RAM0"]) + list(st["RAM1"]) + list(st["RAM2"])
-            trace.append(
+            steps.append(
                 (
                     gb_addr,
                     State(
@@ -168,12 +199,16 @@ def trace_e0c(
         if cpu.istr_counter() != retired:
             name = insn.INSN_PARSERS[rom.get_word(pc * 2)].__name__
             histogram[name] = histogram.get(name, 0) + 1
-    return trace, histogram
+    return Trace(
+        steps=steps,
+        io_accesses=io_accesses,
+        histogram=histogram,
+    )
 
 
 def trace_gb(
     gb_rom_path: str, addr_map: AddressMap, frames: int, max_blocks: int
-) -> tuple[Trace, int]:
+) -> Trace:
     pb = PyBoy(gb_rom_path, window="null")
     M = pb.memory
     A = addr_map.symbols["hA"].addr
@@ -184,8 +219,11 @@ def trace_gb(
     YP = addr_map.symbols["hYP"].addr
     YHL = addr_map.symbols["hYHL"].addr
     W = addr_map.symbols["wRAM"].addr
+    _read_ram = addr_map.symbols["_read_ram.read_io"]
+    _write_ram = addr_map.symbols["_write_ram.write_io"]
 
-    trace: Trace = []
+    steps: list[Step] = []
+    io_accesses: list[IOAccess] = []
 
     def cap() -> State:
         hf: int = M[F]
@@ -203,8 +241,8 @@ def trace_gb(
 
     def mk(gb_addr: GBAddress) -> Callable[[Any], None]:
         def cb(_ctx: Any):
-            if not trace or trace[-1][0] != gb_addr:
-                trace.append((gb_addr, cap()))
+            if not steps or steps[-1][0] != gb_addr:
+                steps.append((gb_addr, cap()))
 
         return cb
 
@@ -213,14 +251,34 @@ def trace_gb(
     for gb_addr in addr_map.gb_addr_labels.keys():
         pb.hook_register(gb_addr.bank, gb_addr.addr, mk(gb_addr), None)
 
+    def add_io_access(type: IOAccessType) -> Callable[[Any], None]:
+        def cb(_ctx: Any):
+            idx_ptr = pb.register_file.HL
+            step = M[idx_ptr]
+            io_accesses.append(
+                IOAccess(type=type, addr=memory.Address(bank=0, page=0xF, step=step))
+            )
+
+        return cb
+
+    pb.hook_register(
+        _read_ram.bank, _read_ram.addr, add_io_access(IOAccessType.R), None
+    )
+    pb.hook_register(
+        _write_ram.bank, _write_ram.addr, add_io_access(IOAccessType.W), None
+    )
+
     for _ in range(frames):
         pb.tick()
-        if len(trace) >= max_blocks:
+        if len(steps) >= max_blocks:
             break
 
-    final_pc: int = pb.register_file.PC
     pb.stop(save=False)
-    return trace, final_pc
+    return Trace(
+        steps=steps,
+        io_accesses=io_accesses,
+        final_pc=pb.register_file.PC,
+    )
 
 
 def print_histogram(histogram: Histogram, clocks: int) -> None:
@@ -245,26 +303,31 @@ def main():
     parser.add_argument(
         "--histogram", action="store_true", help="print dynamic opcode histogram"
     )
+    parser.add_argument("--print-io", action="store_true", help="print I/O accesses")
     args = parser.parse_args()
 
     addr_map = load_address_map(args.gb_sym)
 
-    e0c_trace, histogram = trace_e0c(args.eoc_rom, addr_map, args.steps)
+    e0c_trace = trace_e0c(args.eoc_rom, addr_map, args.steps)
     if args.histogram:
-        print_histogram(histogram, args.steps)
+        assert e0c_trace.histogram is not None
+        print_histogram(e0c_trace.histogram, args.steps)
 
-    gb_trace, final_pc = trace_gb(args.gb_rom, addr_map, args.frames, args.max_blocks)
+    gb_trace = trace_gb(args.gb_rom, addr_map, args.frames, args.max_blocks)
     print(
-        f"E0C blocks={len(e0c_trace)}, GB blocks={len(gb_trace)}, GB final PC=${final_pc:04X}"
+        f"E0C blocks={len(e0c_trace.steps)}, "
+        f"GB blocks={len(gb_trace.steps)}, "
+        f"GB final PC=${gb_trace.final_pc:04X}"
     )
 
-    for i, (e0c_entry, gb_entry) in enumerate(zip(e0c_trace, gb_trace)):
+    match = True
+    for i, (e0c_entry, gb_entry) in enumerate(zip(e0c_trace.steps, gb_trace.steps)):
         e0c_gb_addr, e0c_state = e0c_entry
         gb_addr, gb_state = gb_entry
 
         e0c_gb_label = addr_map.gb_addr_labels.get(e0c_gb_addr)
         prev_e0c_gb_label = (
-            addr_map.gb_addr_labels.get(e0c_trace[i - 1][0]) if i > 0 else "-"
+            addr_map.gb_addr_labels.get(e0c_trace.steps[i - 1][0]) if i > 0 else "-"
         )
 
         if e0c_gb_addr != gb_addr:
@@ -273,7 +336,8 @@ def main():
                 f"CONTROL divergence at block {i}: "
                 f"E0C={e0c_gb_label} GB={gb_label} (prev {prev_e0c_gb_label})"
             )
-            return
+            match = False
+            break
 
         mismatches: list[str] = []
         for field in REGISTER_FIELDS:
@@ -297,9 +361,27 @@ def main():
             )
             for mismatch in mismatches:
                 print(f"  {mismatch}")
-            return
-    num_blocks = min(len(e0c_trace), len(gb_trace))
-    print(f"MATCH (control + non-stack state) for {num_blocks=}")
+            match = False
+            break
+
+    if match:
+        num_blocks = min(len(e0c_trace.steps), len(gb_trace.steps))
+        print(f"MATCH (control + non-stack state) for {num_blocks=}")
+
+    for i, (e0c_io, gb_io) in enumerate(
+        zip(e0c_trace.io_accesses, gb_trace.io_accesses)
+    ):
+        if e0c_io != gb_io:
+            print(
+                f"IO divergence at access {i}, "
+                f"E0C={e0c_io.addr.fmt()}, "
+                f"GB={gb_io.addr.fmt()}"
+            )
+            break
+
+    if args.print_io:
+        for e0c_io in e0c_trace.io_accesses:
+            print(f"{e0c_io.type.value} {e0c_io.addr.fmt()}")
 
 
 if __name__ == "__main__":
