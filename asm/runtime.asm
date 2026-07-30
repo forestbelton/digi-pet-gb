@@ -1,6 +1,12 @@
 INCLUDE "hardware.inc"
 INCLUDE "macro.inc"
 
+SECTION "VBlank ISR", ROM0[$40]
+    JP _lcd_vblank
+
+SECTION "STAT ISR", ROM0[$48]
+    JP _lcd_stat
+
 SECTION "Timer ISR", ROM0[$50]
     JP _handle_timer
 
@@ -29,14 +35,20 @@ _start:
     LDH [hIO_IT], A
     LDH [hIO_EIT], A
 
+    ; NB: CTRL_LCD resets to ALOFF, not zero
+    LD A, $8
+    LDH [hIO_CTRL_LCD], A
+
     ; Initialize timer
     LD A, 240
     LDH [rTMA], A
     LD A, TAC_START | TAC_4KHZ
     LDH [rTAC], A
 
+    CALL _init_lcd
+
     ; Enable interrupts
-    LD A, IE_TIMER
+    LD A, IE_TIMER | IE_VBLANK | IE_STAT
     LDH [rIE], A
     EI
 
@@ -156,6 +168,7 @@ DEF eTM30 EQU $20
 DEF eTM74 EQU $21
 DEF eK0 EQU $40
 DEF eCTRL_OSC EQU $70
+DEF eCTRL_LCD EQU $71
 DEF eCTRL_TM EQU $76
 
 ; Read a nibble from E0C6200 RAM.
@@ -190,6 +203,7 @@ _read_ram::
         eTM74, .read_io_tm74, \
         eK0, .read_io_k0, \
         eCTRL_OSC, .read_io_ctrl_osc, \
+        eCTRL_LCD, .read_io_ctrl_lcd, \
         eCTRL_TM, .read_io_stub
 .read_io_stub:
     XOR A
@@ -216,6 +230,9 @@ _read_ram::
     RET
 .read_io_ctrl_osc:
     LDH A, [hIO_CTRL_OSC]
+    RET
+.read_io_ctrl_lcd:
+    LDH A, [hIO_CTRL_LCD]
     RET
 
 
@@ -252,6 +269,7 @@ _write_ram::
         eTM30, .write_io_stub, \
         eTM74, .write_io_stub, \
         eCTRL_OSC, .write_io_ctrl_osc, \
+        eCTRL_LCD, .write_io_ctrl_lcd, \
         eCTRL_TM, .write_io_ctrl_tm
 .write_io_stub:
     RET
@@ -260,6 +278,9 @@ _write_ram::
     RET
 .write_io_ctrl_osc:
     LDH [hIO_CTRL_OSC], A
+    RET
+.write_io_ctrl_lcd:
+    LDH [hIO_CTRL_LCD], A
     RET
 .write_io_ctrl_tm:
     BIT 1, A

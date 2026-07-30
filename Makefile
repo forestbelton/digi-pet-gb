@@ -9,7 +9,7 @@ ROM_TITLE := $(shell echo '$(ROM_NAME)' | tr '[:lower:]' '[:upper:]')
 
 PYFILES := $(shell find recompile -type f -name '*.py')
 
-ASMFILES := asm/ram.asm asm/rom.asm asm/runtime.asm
+ASMFILES := asm/lcd.asm asm/ram.asm asm/rom.asm asm/runtime.asm
 OFILES := $(ASMFILES:%.asm=%.o)
 
 $(TARGET_ROM) $(TARGET_MAP) $(TARGET_SYM): $(OFILES)

@@ -20,6 +20,7 @@ hYP:: DS 1
 hYHL:: DS 1
 
 hIO_CTRL_OSC:: DS 1
+hIO_CTRL_LCD:: DS 1
 hIO_CTRL_TM: DS 1
 hIO_TM:: DS 1
 hIO_IT:: DS 1
