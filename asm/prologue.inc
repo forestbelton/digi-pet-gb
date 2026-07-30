@@ -48,6 +48,7 @@ _start:
     DI
     ; Initialize HRAM
     XOR A
+    LDH [hBank], A
     LDH [hA], A
     LDH [hB], A
     LDH [hF], A
@@ -82,7 +83,12 @@ _handle_timer::
     BIT 3, A
     JR Z, .done
     ; TODO: Check [hIT] and [hEIT]? (To be defined)
+    LDH A, [hBank]
+    PUSH AF
     FAR_CALL rom_0_1_02
+    POP AF
+    LDH [hBank], A
+    LD [$2000], A
 .done:
     POP HL
     POP DE
@@ -96,6 +102,7 @@ _handle_timer::
 ; @param HL Subroutine address
 _far_call::
     PUSH BC
+    LDH [hBank], A
     LD [$2000], A
     LD BC, .done
     PUSH BC
@@ -103,6 +110,7 @@ _far_call::
 .done:
     POP BC
     LD A, B
+    LDH [hBank], A
     LD [$2000], A
     RET
 
@@ -110,6 +118,7 @@ _far_call::
 ; @param A  Destination ROM bank
 ; @param HL Destination address
 _far_jump::
+    LDH [hBank], A
     LD [$2000], A
     JP HL
 

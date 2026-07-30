@@ -4,6 +4,8 @@ wRAM:: DS $ED0
 
 SECTION "HRAM", HRAM[$FF80]
 
+hBank:: DS 1
+
 hA:: DS 1
 hB:: DS 1
 hF:: DS 1
