@@ -5,6 +5,7 @@ wRAM:: DS $ED0
 SECTION "HRAM", HRAM[$FF80]
 
 hBank:: DS 1
+hHALT:: DS 1
 
 hA:: DS 1
 hB:: DS 1
@@ -19,3 +20,7 @@ hYP:: DS 1
 hYHL:: DS 1
 
 hIO_CTRL_OSC:: DS 1
+hIO_CTRL_TM: DS 1
+hIO_TM:: DS 1
+hIO_IT:: DS 1
+hIO_EIT:: DS 1

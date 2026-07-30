@@ -9,7 +9,7 @@ ROM_TITLE := $(shell echo '$(ROM_NAME)' | tr '[:lower:]' '[:upper:]')
 
 PYFILES := $(shell find recompile -type f -name '*.py')
 
-ASMFILES := asm/rom.asm asm/ram.asm
+ASMFILES := asm/ram.asm asm/rom.asm asm/runtime.asm
 OFILES := $(ASMFILES:%.asm=%.o)
 
 $(TARGET_ROM) $(TARGET_MAP) $(TARGET_SYM): $(OFILES)
@@ -28,7 +28,7 @@ $(TARGET_ROM) $(TARGET_MAP) $(TARGET_SYM): $(OFILES)
 asm/rom.asm: $(SOURCE_ROM) $(PYFILES)
 	python -m recompile -o $@ $<
 
-%.o: %.asm asm/prologue.inc
+%.o: %.asm asm/macro.inc asm/hardware.inc
 	rgbasm -I asm -o $@ $<
 
 .PHONY: clean

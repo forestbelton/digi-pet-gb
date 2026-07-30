@@ -9,7 +9,7 @@ class UnsupportedInstructionError(Exception):
 
 def generate(program: lift.Program) -> list[str]:
     out: list[str] = [
-        'INCLUDE "prologue.inc"',
+        'INCLUDE "macro.inc"',
         "",
     ]
     for block in program.blocks.values():
@@ -96,7 +96,7 @@ def ld_loc_a(l: ir.Location) -> list[str]:
 
 def generate_block(block: ir.Block) -> list[str]:
     lines: list[str] = [f'SECTION "{_address(block.start)}", ROMX', ""]
-    for insn in block.insns:
+    for i, insn in enumerate(block.insns):
         if isinstance(insn, ir.Call):
             lines.append(f"FAR_CALL {_address(insn.target)}")
             # NB: Conditional jump needed after call to correctly handle the
@@ -107,7 +107,7 @@ def generate_block(block: ir.Block) -> list[str]:
                 lines.append(f"FAR_JUMP C, {_address(insn.addr.next().next())}")
             continue
         elif isinstance(insn, ir.Marker):
-            lines.append(f"{_address(insn.addr)}:")
+            lines.append(f"{_address(insn.addr)}::")
             lines.append(f"; {disasm.render_insn(insn.raw)}")
             continue
         match insn.op:
@@ -208,7 +208,17 @@ def generate_block(block: ir.Block) -> list[str]:
                     ]
                 )
             case ir.Operator.HALT:
-                lines.append("; TODO: Interrupt handling")
+                lines.extend(
+                    [
+                        "XOR A",
+                        "LDH [hHALT], A",
+                        f".halt{i}:",
+                        "HALT",
+                        "LDH A, [hHALT]",
+                        "OR A",
+                        f"JR Z, .halt{i}",
+                    ]
+                )
             case ir.Operator.INC:
                 match insn.args[0]:
                     case ir.X:
