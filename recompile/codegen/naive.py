@@ -119,19 +119,26 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "ADD E",
                         "LD HL, hF",
-                        "BIT 0, [HL]",
+                        "BIT FLAG_C, [HL]",
                         "JR Z, .skipAdd",
                         "INC A",
                         ".skipAdd:",
-                        "RES 0, [HL]",
-                        "RES 1, [HL]",
+                        "RES FLAG_C, [HL]",
+                        "RES FLAG_Z, [HL]",
                         "BIT 4, A",
                         "JR Z, .skipC",
-                        "SET 0, [HL]",
+                        "SET FLAG_C, [HL]",
                         ".skipC:",
+                        "BIT FLAG_D, [HL]",
+                        "JR Z, .skipBCD",
+                        "CP 10",
+                        "JR C, .skipBCD",
+                        "ADD 6",
+                        "SET FLAG_C, [HL]",
+                        ".skipBCD:",
                         "AND $f",
                         "JR NZ, .done",
-                        "SET 1, [HL]",
+                        "SET FLAG_Z, [HL]",
                         ".done:",
                     ]
                 )
@@ -145,15 +152,22 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "ADD E",
                         "LD HL, hF",
-                        "RES 0, [HL]",
-                        "RES 1, [HL]",
+                        "RES FLAG_C, [HL]",
+                        "RES FLAG_Z, [HL]",
                         "BIT 4, A",
                         "JR Z, .skipC",
-                        "SET 0, [HL]",
+                        "SET FLAG_C, [HL]",
                         ".skipC:",
+                        "BIT FLAG_D, [HL]",
+                        "JR Z, .skipBCD",
+                        "CP 10",
+                        "JR C, .skipBCD",
+                        "ADD 6",
+                        "SET FLAG_C, [HL]",
+                        ".skipBCD:",
                         "AND $f",
                         "JR NZ, .done",
-                        "SET 1, [HL]",
+                        "SET FLAG_Z, [HL]",
                         ".done:",
                     ]
                 )
@@ -167,9 +181,9 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "AND E",
                         "LD HL, hF",
-                        "RES 1, [HL]",
+                        "RES FLAG_Z, [HL]",
                         "JR NZ, .done",
-                        "SET 1, [HL]",
+                        "SET FLAG_Z, [HL]",
                         ".done:",
                     ]
                 )
@@ -183,13 +197,13 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "CP E",
                         "LD HL, hF",
-                        "RES 0, [HL]",
-                        "RES 1, [HL]",
+                        "RES FLAG_C, [HL]",
+                        "RES FLAG_Z, [HL]",
                         "JR NC, .skipC",
-                        "SET 0, [HL]",
+                        "SET FLAG_C, [HL]",
                         ".skipC:",
                         "JR NZ, .done",
-                        "SET 1, [HL]",
+                        "SET FLAG_Z, [HL]",
                         ".done:",
                     ]
                 )
@@ -201,9 +215,9 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "AND E",
                         "LD HL, hF",
-                        "RES 1, [HL]",
+                        "RES FLAG_Z, [HL]",
                         "JR NZ, .done",
-                        "SET 1, [HL]",
+                        "SET FLAG_Z, [HL]",
                         ".done:",
                     ]
                 )
@@ -243,9 +257,9 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "OR E",
                         "LD HL, hF",
-                        "RES 1, [HL]",
+                        "RES FLAG_Z, [HL]",
                         "JR NZ, .done",
-                        "SET 1, [HL]",
+                        "SET FLAG_Z, [HL]",
                         ".done:",
                     ]
                 )
@@ -273,14 +287,14 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "SLA A",
                         "LD HL, hF",
-                        "BIT 0, [HL]",
+                        "BIT FLAG_C, [HL]",
                         "JR Z, .skipOr",
                         "OR 1",
                         ".skipOr:",
-                        "RES 0, [HL]",
+                        "RES FLAG_C, [HL]",
                         "BIT 4, A",
                         "JR Z, .skipCarry",
-                        "SET 0, [HL]",
+                        "SET FLAG_C, [HL]",
                         ".skipCarry:",
                         "AND $f",
                     ]
@@ -292,14 +306,14 @@ def generate_block(block: ir.Block) -> list[str]:
                 lines.extend(
                     [
                         "LD HL, hF",
-                        "BIT 0, [HL]",
+                        "BIT FLAG_C, [HL]",
                         "JR Z, .skipOr",
                         "OR $10",
                         ".skipOr:",
                         "SRA A",
-                        "RES 0, [HL]",
+                        "RES FLAG_C, [HL]",
                         "JR NC, .skipCarry",
-                        "SET 0, [HL]",
+                        "SET FLAG_C, [HL]",
                         ".skipCarry:",
                     ]
                 )
@@ -369,9 +383,9 @@ def generate_block(block: ir.Block) -> list[str]:
                     [
                         "XOR E",
                         "LD HL, hF",
-                        "RES 1, [HL]",
+                        "RES FLAG_Z, [HL]",
                         "JR NZ, .skipZ",
-                        "SET 1, [HL]",
+                        "SET FLAG_Z, [HL]",
                         ".skipZ:",
                     ]
                 )
@@ -414,6 +428,7 @@ def generate_block(block: ir.Block) -> list[str]:
         case ir.Dispatch(table):
             lines.extend(
                 [
+                    "; JPBA",
                     "LD A, [hB]",
                     "SWAP A",
                     "LD B, A",

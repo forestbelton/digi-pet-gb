@@ -83,11 +83,10 @@ _handle_timer::
     LDH A, [hIO_IT]
     AND B
     JR Z, .done
-    ; NB: Check I flag is set
     LDH A, [hF]
-    BIT 3, A
+    BIT FLAG_I, A
     JR Z, .done
-    RES 3, A
+    RES FLAG_I, A
     LDH [hF], A
     LDH A, [hBank]
     PUSH AF
