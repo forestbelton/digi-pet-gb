@@ -32,3 +32,8 @@ hIO_CTRL_TM: DS 1
 hIO_TM:: DS 1
 hIO_IT:: DS 1
 hIO_EIT:: DS 1
+
+hIO_K0:: DS 1
+hIO_IK0:: DS 1
+hIO_DFK0:: DS 1
+hIO_EIK0:: DS 1
