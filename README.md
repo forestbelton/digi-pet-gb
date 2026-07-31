@@ -1,6 +1,6 @@
 # digi-pet-gb
 
-A recompilation project to run the [Digital Monster](https://en.wikipedia.org/wiki/Digital_Monster) virtual pet on the Game Boy. 100% human written.
+A recompilation project to run the [Digital Monster](https://en.wikipedia.org/wiki/Digital_Monster) virtual pet on the Game Boy Color. 100% human written.
 
 **NOTE**: A ROM dump is required to build the Game Boy ROM. Supported ROMs are listed below:
 
@@ -20,7 +20,7 @@ From the project root:
 $ make
 ```
 
-`DigimonV1JA.gb` should be produced in the same directory. If you'd like to override the source ROM used:
+`DigimonV1JA.gbc` should be produced in the same directory. If you'd like to override the source ROM used:
 
 ```
 $ SOURCE_ROM=<path/to/rom.bin> make
