@@ -94,6 +94,14 @@ def ld_loc_a(l: ir.Location) -> list[str]:
             raise ValueError(f"invalid location {l}")
 
 
+NO_BCD_REGISTERS = {
+    ir.Register.XH,
+    ir.Register.XL,
+    ir.Register.YH,
+    ir.Register.YL,
+}
+
+
 def generate_block(block: ir.Block) -> list[str]:
     lines: list[str] = [f'SECTION "{_address(block.start)}", ROMX', ""]
     for i, insn in enumerate(block.insns):
@@ -129,13 +137,22 @@ def generate_block(block: ir.Block) -> list[str]:
                         "JR Z, .skipC",
                         "SET FLAG_C, [HL]",
                         ".skipC:",
-                        "BIT FLAG_D, [HL]",
-                        "JR Z, .skipBCD",
-                        "CP 10",
-                        "JR C, .skipBCD",
-                        "ADD 6",
-                        "SET FLAG_C, [HL]",
-                        ".skipBCD:",
+                    ]
+                )
+                if insn.args[0] not in NO_BCD_REGISTERS:
+                    lines.extend(
+                        [
+                            "BIT FLAG_D, [HL]",
+                            "JR Z, .skipBCD",
+                            "CP 10",
+                            "JR C, .skipBCD",
+                            "ADD 6",
+                            "SET FLAG_C, [HL]",
+                            ".skipBCD:",
+                        ]
+                    )
+                lines.extend(
+                    [
                         "AND $f",
                         "JR NZ, .done",
                         "SET FLAG_Z, [HL]",
