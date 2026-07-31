@@ -295,9 +295,12 @@ def generate_block(block: ir.Block) -> list[str]:
             case ir.Operator.PUSH:
                 assert isinstance(insn.args[0], ir.Register)
                 lines.extend(ld_a_operand(insn.args[0]))
+                # NB: Move SP before storing. Writing first leaves the nibble
+                # sitting above SP, where an interrupt's own push lands on top of
+                # it, and the guest pops back a fragment of a return address.
                 lines.append(f"LD HL, SP - 1")
-                lines.append(f"LD [HL], A")
                 lines.append(f"LD SP, HL")
+                lines.append(f"LD [HL], A")
             case ir.Operator.RLC:
                 lines.extend(ld_a_operand(insn.args[0]))
                 lines.extend(
