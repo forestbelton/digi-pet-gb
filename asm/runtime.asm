@@ -19,6 +19,8 @@ DS $150 - @, 0
 SECTION "Entrypoint", ROM0[$150]
 _start:
     DI
+    LD SP, wStack + $1000
+
     ; Initialize HRAM
     XOR A
     LDH [hBank], A

@@ -2,6 +2,13 @@ SECTION "WRAM", WRAM0[$C000]
 
 wRAM:: DS $ED0
 
+; NB: The boot ROM leaves SP at $FFFE, which grows the stack down through HRAM
+; and into the register mirrors below. The guest's own pushes land here too, so
+; give it a bank of its own well clear of them.
+SECTION "Stack", WRAMX[$D000]
+
+wStack:: DS $1000
+
 SECTION "HRAM", HRAM[$FF80]
 
 hBank:: DS 1
