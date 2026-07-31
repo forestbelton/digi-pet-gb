@@ -20,14 +20,18 @@ class Flag(enum.Enum):
         return {self}
 
     @property
-    def mask(self) -> int:
+    def index(self) -> int:
         BIT_INDEXES = {
             Flag.C: 0,
             Flag.Z: 1,
             Flag.D: 2,
             Flag.I: 3,
         }
-        return 1 << BIT_INDEXES[self]
+        return BIT_INDEXES[self]
+
+    @property
+    def mask(self) -> int:
+        return 1 << self.index
 
 
 class Register(enum.Enum):

@@ -102,8 +102,16 @@ NO_BCD_REGISTERS = {
 }
 
 
+def _get_bank_index(addr: memory.Address) -> int:
+    return ((addr.bank << 4) | (addr.page & 0xF)) + 1
+
+
 def generate_block(block: ir.Block) -> list[str]:
-    lines: list[str] = [f'SECTION "{_address(block.start)}", ROMX', ""]
+    bank_index = _get_bank_index(block.start)
+    lines: list[str] = [
+        f'SECTION "{_address(block.start)}", ROMX, BANK[{bank_index}]',
+        "",
+    ]
     for i, insn in enumerate(block.insns):
         if isinstance(insn, ir.Call):
             lines.append(f"FAR_CALL {_address(insn.target)}")
@@ -112,7 +120,12 @@ def generate_block(block: ir.Block) -> list[str]:
             # (RETS cannot skip a page prefix), matching the CFG which does not
             # lift addr.next().next() in that case.
             if insn.skips:
-                lines.append(f"FAR_JUMP C, {_address(insn.addr.next().next())}")
+                fallthrough = insn.addr.next().next()
+                fallthrough_index = _get_bank_index(fallthrough)
+                if bank_index == fallthrough_index:
+                    lines.append(f"JP C, {_address(fallthrough)}")
+                else:
+                    lines.append(f"FAR_JUMP C, {_address(fallthrough)}")
             continue
         elif isinstance(insn, ir.Marker):
             lines.append(f"{_address(insn.addr)}::")
@@ -415,7 +428,11 @@ def generate_block(block: ir.Block) -> list[str]:
                 raise UnsupportedInstructionError(insn)
     match block.terminator:
         case ir.Jump(target):
-            lines.append(f"FAR_JUMP {_address(target)}")
+            target_bank_index = _get_bank_index(target)
+            if bank_index == target_bank_index:
+                lines.append(f"JP {_address(target)}")
+            else:
+                lines.append(f"FAR_JUMP {_address(target)}")
         case ir.Return(offset):
             # NB: We set the carry flag if we are generating a RETS instruction
             # so that the call site knows to skip the instruction after it
@@ -427,24 +444,26 @@ def generate_block(block: ir.Block) -> list[str]:
                 raise ValueError(f"unsupported {offset=} in return")
             lines.append("RET")
         case ir.CondJump(flag, negate, target, fallthrough):
-            if flag == ir.Flag.C:
-                flag_bit = 0
-            elif flag == ir.Flag.Z:
-                flag_bit = 1
+            lines.append(f"LD A, [hF]")
+            lines.append(f"BIT {flag.index}, A")
+            target_bank_index = _get_bank_index(target)
+            if bank_index == target_bank_index:
+                lines.append(
+                    f"JP Z, {_address(target)}"
+                    if negate
+                    else f"JP NZ, {_address(target)}"
+                )
             else:
-                raise ValueError(f"unsupported flag {flag} in conditional jump")
-            lines.extend(
-                [
-                    f"LD A, [hF]",
-                    f"BIT {flag_bit}, A",
-                    (
-                        f"FAR_JUMP Z, {_address(target)}"
-                        if negate
-                        else f"FAR_JUMP NZ, {_address(target)}"
-                    ),
-                    f"FAR_JUMP {_address(fallthrough)}",
-                ]
-            )
+                lines.append(
+                    f"FAR_JUMP Z, {_address(target)}"
+                    if negate
+                    else f"FAR_JUMP NZ, {_address(target)}"
+                )
+            fallthrough_index = _get_bank_index(fallthrough)
+            if bank_index == fallthrough_index:
+                lines.append(f"JP {_address(fallthrough)}")
+            else:
+                lines.append(f"FAR_JUMP {_address(fallthrough)}")
         case ir.Dispatch(table):
             lines.extend(
                 [
