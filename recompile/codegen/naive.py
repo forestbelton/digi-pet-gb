@@ -28,16 +28,16 @@ def ld_a_operand(o: ir.Operand) -> list[str]:
             | ir.Register.XP
             | ir.Register.YP
         ):
-            return [f"LD A, [h{o.value}]"]
+            return [f"LDH A, [h{o.value}]"]
         case ir.Register.XH | ir.Register.YH:
             return [
-                f"LD A, [h{ir.ptr_base(o)}HL]",
+                f"LDH A, [h{ir.ptr_base(o)}HL]",
                 f"SWAP A",
                 f"AND $f",
             ]
         case ir.Register.XL | ir.Register.YL:
             return [
-                f"LD A, [h{ir.ptr_base(o)}HL]",
+                f"LDH A, [h{ir.ptr_base(o)}HL]",
                 f"AND $f",
             ]
         case ir.Memory(ptr):
@@ -62,24 +62,24 @@ def ld_loc_a(l: ir.Location) -> list[str]:
             | ir.Register.XP
             | ir.Register.YP
         ):
-            return [f"LD [h{l.value}], A"]
+            return [f"LDH [h{l.value}], A"]
         case ir.Register.XH | ir.Register.YH:
             return [
                 f"LD B, A",
-                f"LD A, [h{ir.ptr_base(l)}HL]",
+                f"LDH A, [h{ir.ptr_base(l)}HL]",
                 f"SWAP A",
                 f"AND $f0",
                 f"ADD B",
                 f"SWAP A",
-                f"LD [h{ir.ptr_base(l)}HL], A",
+                f"LDH [h{ir.ptr_base(l)}HL], A",
             ]
         case ir.Register.XL | ir.Register.YL:
             return [
                 f"LD B, A",
-                f"LD A, [h{ir.ptr_base(l)}HL]",
+                f"LDH A, [h{ir.ptr_base(l)}HL]",
                 f"AND $f0",
                 f"ADD B",
-                f"LD [h{ir.ptr_base(l)}HL], A",
+                f"LDH [h{ir.ptr_base(l)}HL], A",
             ]
         case ir.Memory(ptr):
             if isinstance(ptr, int):
@@ -354,9 +354,9 @@ def generate_block(block: ir.Block) -> list[str]:
                 lines.extend(ld_loc_a(insn.args[0]))
             case ir.Operator.RST:
                 assert isinstance(insn.args[0], ir.Imm4)
-                lines.append(f"LD A, [hF]")
+                lines.append(f"LDH A, [hF]")
                 lines.append(f"AND ${insn.args[0].value:X}")
-                lines.append(f"LD [hF], A")
+                lines.append(f"LDH [hF], A")
             case ir.Operator.SBC:
                 lines.extend(ld_a_operand(insn.args[1]))
                 lines.append("LD E, A")
@@ -384,9 +384,9 @@ def generate_block(block: ir.Block) -> list[str]:
                 lines.extend(ld_loc_a(insn.args[0]))
             case ir.Operator.SET:
                 assert isinstance(insn.args[0], ir.Imm4)
-                lines.append(f"LD A, [hF]")
+                lines.append(f"LDH A, [hF]")
                 lines.append(f"OR ${insn.args[0].value:X}")
-                lines.append(f"LD [hF], A")
+                lines.append(f"LDH [hF], A")
             case ir.Operator.SUB:
                 lines.extend(ld_a_operand(insn.args[1]))
                 lines.append("LD E, A")
@@ -444,7 +444,7 @@ def generate_block(block: ir.Block) -> list[str]:
                 raise ValueError(f"unsupported {offset=} in return")
             lines.append("RET")
         case ir.CondJump(flag, negate, target, fallthrough):
-            lines.append(f"LD A, [hF]")
+            lines.append(f"LDH A, [hF]")
             lines.append(f"BIT {flag.index}, A")
             target_bank_index = _get_bank_index(target)
             if bank_index == target_bank_index:
@@ -468,10 +468,10 @@ def generate_block(block: ir.Block) -> list[str]:
             lines.extend(
                 [
                     "; JPBA",
-                    "LD A, [hB]",
+                    "LDH A, [hB]",
                     "SWAP A",
                     "LD B, A",
-                    "LD A, [hA]",
+                    "LDH A, [hA]",
                     "OR B",
                     f"SUB {table.addr.step}",
                     "LD HL, .jump_table",
