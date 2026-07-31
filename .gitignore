@@ -3,6 +3,7 @@ scratch/
 asm/rom.asm
 *.bin
 *.gb
+*.gbc
 *.o
 *.sym
 *.map

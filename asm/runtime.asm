@@ -1,6 +1,11 @@
 INCLUDE "hardware.inc"
 INCLUDE "macro.inc"
 
+DEF TMA_INIT = 240
+IF DEF(USE_CGB)
+    DEF TMA_INIT = 224
+ENDC
+
 SECTION "VBlank ISR", ROM0[$40]
     JP _lcd_vblank
 
@@ -23,6 +28,16 @@ SECTION "Entrypoint", ROM0[$150]
 _start:
     DI
     LD SP, wStack + $1000
+
+    IF DEF(USE_CGB)
+        XOR A
+        LDH [rIE], A
+        LD A, $30
+        LDH [rJOYP], A
+        LD A, $01
+        LDH [rKEY1], A
+        STOP
+    ENDC
 
     ; Initialize HRAM
     XOR A
@@ -49,7 +64,7 @@ _start:
     LDH [hIO_DFK0], A
 
     ; Initialize timer
-    LD A, 240
+    LD A, TMA_INIT
     LDH [rTMA], A
     LD A, TAC_START | TAC_4KHZ
     LDH [rTAC], A
